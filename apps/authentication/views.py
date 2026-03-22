@@ -10,8 +10,7 @@ from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from .serializers import (
     LoginSerializer,
@@ -42,10 +41,11 @@ class LoginView(APIView):
     """
     permission_classes = [permissions.AllowAny]
 
-    @swagger_auto_schema(
-        request_body=LoginSerializer,
+    @extend_schema(
+        request=LoginSerializer,
         responses={200: TokenResponseSerializer},
-        operation_description="Authenticate user and return JWT tokens"
+        summary="Authenticate user and return JWT tokens",
+        description="Login with email and password to get JWT access and refresh tokens"
     )
     def post(self, request):
         """
@@ -98,8 +98,9 @@ class TokenRefreshViewCustom(TokenRefreshView):
     POST /api/auth/refresh/
     """
     
-    @swagger_auto_schema(
-        operation_description="Refresh JWT access token"
+    @extend_schema(
+        summary="Refresh JWT access token",
+        description="Use refresh token to get a new access token"
     )
     def post(self, request, *args, **kwargs):
         """
@@ -141,16 +142,16 @@ class FCMTokenView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
-    @swagger_auto_schema(
-        request_body=FCMTokenSerializer,
-        responses={200: openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING),
-                'fcm_token': openapi.Schema(type=openapi.TYPE_STRING)
+    @extend_schema(
+        request=FCMTokenSerializer,
+        responses={200: {
+            'type': 'object',
+            'properties': {
+                'message': {'type': 'string'}
             }
-        )},
-        operation_description="Update user's FCM token for push notifications"
+        }},
+        summary="Register FCM token",
+        description="Register Firebase Cloud Messaging token for push notifications"
     )
     def patch(self, request):
         """

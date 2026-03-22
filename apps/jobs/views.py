@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from .models import Job, ChecklistResponse
 from .serializers import JobListSerializer, JobDetailSerializer, JobStatusSerializer, ChecklistSubmitSerializer, ChecklistResponseSerializer
@@ -59,10 +60,24 @@ class JobStatusView(generics.UpdateAPIView):
     """
     serializer_class = JobStatusSerializer
     permission_classes = [IsAuthenticated, IsTechnicianOwner]
+    http_method_names = ['patch']
     
     def get_queryset(self):
         return Job.objects.filter(technician=self.request.user)
     
+    @extend_schema(
+        summary="Update job status",
+        description="Update the status of a job. Only status field is allowed.",
+        request=JobStatusSerializer,
+        responses={200: JobStatusSerializer},
+        examples=[
+            OpenApiExample(
+                'Status Update Example',
+                summary='Example request for status update',
+                value={'status': 'in_progress'}
+            )
+        ]
+    )
     def patch(self, request, *args, **kwargs):
         """
         Only allow PATCH requests for status updates
@@ -84,6 +99,7 @@ class ChecklistView(generics.GenericAPIView):
     GET + POST /api/jobs/{id}/checklist/
     Handles checklist submission and retrieval with conflict detection
     """
+    serializer_class = ChecklistResponseSerializer
     permission_classes = [IsAuthenticated, IsTechnicianOwner]
     
     def get_queryset(self):
@@ -103,6 +119,30 @@ class ChecklistView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND
             )
     
+    @extend_schema(
+        summary="Create or update checklist response",
+        description="Create or update a checklist response with conflict detection",
+        request=ChecklistSubmitSerializer,
+        responses={201: ChecklistResponseSerializer, 409: {
+            'type': 'object',
+            'properties': {
+                'error': {'type': 'string'},
+                'message': {'type': 'string'}
+            }
+        }},
+        examples=[
+            OpenApiExample(
+                'Checklist Submit Example',
+                summary='Example request for checklist submission',
+                value={
+                    'data': {'field1': 'value1', 'field2': 'value2'},
+                    'client_modified_at': '2024-01-15T10:30:00Z',
+                    'is_complete': True,
+                    'force': False
+                }
+            )
+        ]
+    )
     def post(self, request, *args, **kwargs):
         """Creates or updates the ChecklistResponse with conflict detection"""
         job = self.get_object()

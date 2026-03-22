@@ -7,11 +7,32 @@ from django.utils import timezone
 from apps.jobs.models import Job, ChecklistResponse
 from .serializers import BatchSyncSerializer
 from .conflict import detect_conflict, build_conflict_response
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 
 class BatchSyncView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=BatchSyncSerializer,
+        responses={200: {
+            'type': 'object',
+            'properties': {
+                'results': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string'},
+                            'status': {'type': 'string', 'enum': ['success', 'error', 'conflict']}
+                        }
+                    }
+                }
+            }
+        }},
+        summary="Batch synchronize jobs and checklists",
+        description="Batch synchronize jobs and checklists with conflict detection"
+    )
     def post(self, request):
         serializer = BatchSyncSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

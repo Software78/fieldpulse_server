@@ -29,7 +29,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django_ratelimit',
     'corsheaders',
-    'drf_yasg',
+    'drf_spectacular',
     'django_celery_beat',
     
     # Local apps
@@ -136,6 +136,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # JWT Settings
@@ -208,33 +209,33 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# Swagger/OpenAPI Settings
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'JWT Bearer token authentication. Enter token in format: Bearer <your_jwt_token>'
-        }
+# Spectacular/OpenAPI Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'FieldPulse API',
+    'DESCRIPTION': 'API documentation for FieldPulse server',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayRequestDuration': True,
+        'docExpansion': 'none',
+        'operationsSorter': 'alpha',
+        'tagsSorter': 'alpha',
     },
-    'SECURITY_REQUIREMENTS': [
-        {'Bearer': []}
+    'SWAGGER_UI_FAVICON_HREF': 'https://fastapi.tiangolo.com/img/favicon.png',
+    'REDOC_UI_SETTINGS': {
+        'hideDownloadButton': True,
+        'hideHostname': True,
+        'noAutoAuth': False,
+    },
+    'SERVERS': [
+        {'url': 'http://localhost:8000', 'description': 'Development server'},
     ],
-    'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
-    'SUPPORTED_SUBMIT_METHODS': [
-        'get',
-        'post',
-        'put',
-        'delete',
-        'patch'
+    'AUTHENTICATION_WHITELIST': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
-    'OPERATIONS_SORTER': 'alpha',
-    'TAGS_SORTER': 'alpha',
-    'DOC_EXPANSION': 'none',
-    'DEEP_LINKING': True,
-    'SHOW_EXTENSIONS': True,
-    'DEFAULT_MODEL_RENDERING': 'example'
 }
 

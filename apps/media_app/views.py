@@ -3,12 +3,14 @@ Views for media uploads (photos and signatures).
 """
 import logging
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.exceptions import ValidationError
 from botocore.exceptions import ClientError, NoCredentialsError
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 from .storage import storage
 from .serializers import PhotoUploadSerializer, SignatureUploadSerializer
@@ -19,6 +21,32 @@ logger = logging.getLogger(__name__)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
+@extend_schema(
+    summary="Upload a photo to MinIO storage",
+    description="Upload a photo file associated with a specific job and checklist field",
+    request=PhotoUploadSerializer,
+    responses={201: {
+        'type': 'object',
+        'properties': {
+            'id': {'type': 'string', 'format': 'uuid'},
+            'url': {'type': 'string', 'format': 'uri'}
+        }
+    }},
+    examples=[
+        OpenApiExample(
+            'Photo Upload Example',
+            summary='Example request for photo upload',
+            value={
+                'job_id': '550e8400-e29b-41d4-a716-446655440000',
+                'field_id': 'customer_photo',
+                'file': 'image.jpg',
+                'captured_at': '2024-01-15T10:30:00Z',
+                'latitude': 40.7128,
+                'longitude': -74.0060
+            }
+        )
+    ]
+)
 def photo_upload_view(request):
     """
     Upload a photo to MinIO storage.
@@ -98,6 +126,30 @@ def photo_upload_view(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
+@extend_schema(
+    summary="Upload a signature to MinIO storage",
+    description="Upload a PNG signature file associated with a specific job and checklist field",
+    request=SignatureUploadSerializer,
+    responses={201: {
+        'type': 'object',
+        'properties': {
+            'id': {'type': 'string', 'format': 'uuid'},
+            'url': {'type': 'string', 'format': 'uri'}
+        }
+    }},
+    examples=[
+        OpenApiExample(
+            'Signature Upload Example',
+            summary='Example request for signature upload',
+            value={
+                'job_id': '550e8400-e29b-41d4-a716-446655440000',
+                'field_id': 'customer_signature',
+                'file': 'signature.png',
+                'captured_at': '2024-01-15T10:30:00Z'
+            }
+        )
+    ]
+)
 def signature_upload_view(request):
     """
     Upload a signature to MinIO storage.
