@@ -1,0 +1,205 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: fieldpulse_db
+    environment:
+      POSTGRES_DB: fieldpulse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - fieldpulse_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fieldpulse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: fieldpulse_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    volumes:
+      - minio_data:/data
+    networks:
+      - fieldpulse_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: fieldpulse_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fieldpulse_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fieldpulse_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=fieldpulse
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/1
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_STORAGE_BUCKET_NAME=fieldpulse
+      - SECRET_KEY=your-secret-key-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,backend
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - ./logs:/app/logs
+    networks:
+      - fieldpulse_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fieldpulse_celery
+    command: celery -A fieldpulse worker -l info
+    environment:
+      - DEBUG=True
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=fieldpulse
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/1
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_STORAGE_BUCKET_NAME=fieldpulse
+      - SECRET_KEY=your-secret-key-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+    depends_on:
+      - db
+      - redis
+      - backend
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - fieldpulse_network
+    restart: unless-stopped
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fieldpulse_celery_beat
+    command: celery -A fieldpulse beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DEBUG=True
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=fieldpulse
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/1
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_STORAGE_BUCKET_NAME=fieldpulse
+      - SECRET_KEY=your-secret-key-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+    depends_on:
+      - db
+      - redis
+      - backend
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - fieldpulse_network
+    restart: unless-stopped
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fieldpulse_flower
+    command: celery -A fieldpulse flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - DEBUG=True
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=fieldpulse
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_URL=redis://redis:6379/1
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_STORAGE_BUCKET_NAME=fieldpulse
+      - SECRET_KEY=your-secret-key-change-in-production
+    depends_on:
+      - redis
+      - celery
+    networks:
+      - fieldpulse_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  minio_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+
+networks:
+  fieldpulse_network:
+    driver: bridge
