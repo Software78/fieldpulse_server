@@ -54,9 +54,19 @@ class JobStatusSerializer(serializers.ModelSerializer):
         }
         
         if value not in valid_transitions.get(current_status, []):
-            raise serializers.ValidationError(
-                f"Invalid status transition from {current_status} to {value}"
-            )
+            if current_status == 'pending' and value == 'completed':
+                raise serializers.ValidationError(
+                    "Cannot mark job as completed directly. First set status to 'in_progress'."
+                )
+            elif current_status == 'completed':
+                raise serializers.ValidationError(
+                    "Cannot change status of a completed job."
+                )
+            else:
+                raise serializers.ValidationError(
+                    f"Invalid status transition from {current_status} to {value}. "
+                    f"Allowed transitions from {current_status}: {', '.join(valid_transitions.get(current_status, []))}"
+                )
         
         return value
 

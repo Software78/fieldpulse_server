@@ -44,9 +44,28 @@ def custom_exception_handler(exc, context):
     if isinstance(exc, ValidationError):
         error_code = "validation_error"
         status_code = status.HTTP_400_BAD_REQUEST
-        message = "Validation failed."
+        
         if hasattr(exc, 'detail') and isinstance(exc.detail, dict):
             details = exc.detail
+            # Extract the first validation error message for user-friendly display
+            if 'status' in details and details['status']:
+                # Handle status field validation errors specifically
+                status_errors = details['status']
+                if isinstance(status_errors, list) and status_errors:
+                    message = str(status_errors[0])
+                else:
+                    message = str(status_errors)
+            else:
+                # For other validation errors, use the first available message
+                first_key = list(details.keys())[0] if details else None
+                if first_key and details[first_key]:
+                    first_error = details[first_key]
+                    if isinstance(first_error, list) and first_error:
+                        message = str(first_error[0])
+                    else:
+                        message = str(first_error)
+                else:
+                    message = "Validation failed."
         else:
             message = str(exc)
     

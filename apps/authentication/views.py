@@ -10,6 +10,8 @@ from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .serializers import (
     LoginSerializer,
@@ -40,6 +42,11 @@ class LoginView(APIView):
     """
     permission_classes = [permissions.AllowAny]
 
+    @swagger_auto_schema(
+        request_body=LoginSerializer,
+        responses={200: TokenResponseSerializer},
+        operation_description="Authenticate user and return JWT tokens"
+    )
     def post(self, request):
         """
         Authenticate user and return tokens.
@@ -91,6 +98,9 @@ class TokenRefreshViewCustom(TokenRefreshView):
     POST /api/auth/refresh/
     """
     
+    @swagger_auto_schema(
+        operation_description="Refresh JWT access token"
+    )
     def post(self, request, *args, **kwargs):
         """
         Refresh access token with rate limiting.
@@ -107,44 +117,6 @@ class TokenRefreshViewCustom(TokenRefreshView):
             )
 
 
-@method_decorator(ratelimit(key='ip', rate='20/m', method='POST'), name='post')
-@method_decorator(csrf_exempt, name='dispatch')
-class LogoutView(APIView):
-    """
-    Logout view to blacklist refresh token.
-    POST /api/auth/logout/
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        """
-        Blacklist the submitted refresh token.
-        """
-        try:
-            refresh_token = request.data.get('refresh')
-            
-            if not refresh_token:
-                return error_response(
-                    error_code='missing_refresh_token',
-                    message='Refresh token is required.',
-                    details={},
-                    status_code=status.HTTP_400_BAD_REQUEST
-                )
-            
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            
-            return Response({
-                'message': 'Successfully logged out.'
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return error_response(
-                error_code='logout_failed',
-                message='Failed to logout.',
-                details={'error': str(e)},
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
 
 
 class MeView(APIView):
@@ -169,6 +141,17 @@ class FCMTokenView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        request_body=FCMTokenSerializer,
+        responses={200: openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING),
+                'fcm_token': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        )},
+        operation_description="Update user's FCM token for push notifications"
+    )
     def patch(self, request):
         """
         Update user's FCM token.
