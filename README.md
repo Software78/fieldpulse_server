@@ -35,7 +35,6 @@ fieldpulse/
 - PostgreSQL database
 - MinIO S3-compatible storage
 - Redis caching
-- Celery background tasks
 - Rate limiting
 - Custom pagination (cursor-based)
 - Comprehensive permissions system
@@ -46,61 +45,78 @@ fieldpulse/
 ### Using Docker Compose (Recommended)
 
 1. Copy environment file:
+
 ```bash
 cp .env.example .env
 ```
 
 2. Start all services:
+
 ```bash
 docker-compose up -d
 ```
 
 3. Run migrations:
+
 ```bash
+docker-compose exec backend python manage.py makemigrations
 docker-compose exec backend python manage.py migrate
 ```
 
-4. Create superuser:
+4. Seed database (optional - for development data):
+
+```bash
+docker-compose exec db psql -U postgres -d fieldpulse -f /docker-entrypoint-initdb.d/init-db.sql
+```
+
+5. Create superuser (optional):
+
 ```bash
 docker-compose exec backend python manage.py createsuperuser
 ```
 
-5. Access services:
+6. Access services:
+
 - API: http://localhost:8000
 - Admin: http://localhost:8000/admin
 - MinIO Console: http://localhost:9001
-- Flower (Celery monitoring): http://localhost:5555
 
 ### Local Development
 
 1. Create virtual environment:
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
 2. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 3. Set up environment variables:
+
 ```bash
 cp .env.example .env
 # Edit .env with your settings
 ```
 
 4. Run migrations:
+
 ```bash
 python manage.py migrate
 ```
 
 5. Create superuser:
+
 ```bash
 python manage.py createsuperuser
 ```
 
 6. Start development server:
+
 ```bash
 python manage.py runserver
 ```
@@ -108,11 +124,13 @@ python manage.py runserver
 ## API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/login/` - Get JWT tokens
 - `POST /api/auth/refresh/` - Refresh access token
 - `POST /api/auth/verify/` - Verify token validity
 
 ### Health Check
+
 - `GET /api/health/` - Service health status
 
 ## Configuration
@@ -161,6 +179,44 @@ python manage.py startapp app_name apps/
 ## Deployment
 
 The project is containerized and ready for deployment. Use the provided Dockerfile and docker-compose.yml for production deployment.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Migration errors**: If migrations fail, run them manually:
+
+   ```bash
+   docker-compose exec backend python manage.py makemigrations
+   docker-compose exec backend python manage.py migrate
+   ```
+
+2. **Database connection issues**: Ensure PostgreSQL is running and check `.env` settings.
+
+3. **Container restart loops**: Check logs with:
+
+   ```bash
+   docker-compose logs [service_name]
+   ```
+
+4. **MinIO connection issues**: Verify AWS credentials in environment variables.
+
+### Database Seeding
+
+If you need to reset and reseed the database:
+
+```bash
+# Clear existing data and reseed
+docker-compose exec db psql -U postgres -d fieldpulse -f /docker-entrypoint-initdb.d/init-db.sql
+```
+
+**Test Users Created:**
+
+- Email: `tech1@fieldpulse.com` - Password: `password123`
+- Email: `tech2@fieldpulse.com` - Password: `password123`
+- Email: `tech3@fieldpulse.com` - Password: `password123`
+
+These users are technicians with sample jobs assigned to them.
 
 ## Security Notes
 
