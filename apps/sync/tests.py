@@ -7,7 +7,7 @@ from rest_framework import status
 from uuid import uuid4
 import json
 
-from apps.jobs.models import Job, ChecklistResponse
+from .models import Job, ChecklistResponse
 
 User = get_user_model()
 
@@ -303,5 +303,51 @@ class BatchSyncTests(TestCase):
         }
         
         response = self.client.post('/api/sync/batch/', payload, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_sync_all_data(self):
+        """Test GET sync endpoint returns all data when no timestamp provided"""
+        response = self.client.get('/api/sync/batch/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('results', response.data)
+        self.assertIn('jobs', response.data['results'])
+        self.assertIn('checklists', response.data['results'])
+        
+        # Should return all 3 jobs for this user
+        self.assertEqual(len(response.data['results']['jobs']), 3)
+        
+        # Should return 1 checklist (the one we created)
+        self.assertEqual(len(response.data['results']['checklists']), 1)
+
+    def test_get_sync_with_timestamp(self):
+        """Test GET sync endpoint with timestamp filter"""
+        # Update a job to make it newer
+        self.job1.status = 'in_progress'
+        self.job1.save()
+        
+        # Use timestamp from 5 minutes ago
+        sync_time = (timezone.now() - timedelta(minutes=5)).isoformat()
+        response = self.client.get(f'/api/sync/batch/?last_sync_time={sync_time}')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Should return the updated job
+        job_ids = [job['id'] for job in response.data['results']['jobs']]
+        self.assertIn(str(self.job1.id), job_ids)
+
+    def test_get_sync_invalid_timestamp(self):
+        """Test GET sync endpoint with invalid timestamp"""
+        response = self.client.get('/api/sync/batch/?last_sync_time=invalid-timestamp')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Invalid datetime format', response.data['detail'])
+
+    def test_get_sync_unauthorized(self):
+        """Test GET sync endpoint without authentication"""
+        self.client.force_authenticate(user=None)
+        
+        response = self.client.get('/api/sync/batch/')
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -10,11 +10,6 @@ class User(AbstractUser):
     Custom user model extending AbstractUser with additional fields.
     """
     phone = models.CharField(max_length=20, blank=True, help_text="Phone number")
-    fcm_token = models.CharField(
-        max_length=255, 
-        blank=True, 
-        help_text="FCM token for push notifications"
-    )
     updated_at = models.DateTimeField(auto_now=True, help_text="Last update timestamp")
 
     class Meta:

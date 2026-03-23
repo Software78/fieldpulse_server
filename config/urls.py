@@ -11,7 +11,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('apps.core.urls')),
     path('api/auth/', include('apps.authentication.urls')),
-    path('api/jobs/', include('apps.jobs.urls')),
     path('api/media/', include('apps.media_app.urls')),
     path('api/sync/', include('apps.sync.urls')),
     

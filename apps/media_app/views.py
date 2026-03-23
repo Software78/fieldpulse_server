@@ -80,18 +80,20 @@ def photo_upload_view(request):
             # Get the validated data
             validated_data = serializer.validated_data
             file_obj = validated_data['file']
-            s3_key = validated_data['s3_key']
             
             # Determine content type from file
             content_type = getattr(file_obj, 'content_type', 'image/jpeg')
             
             try:
-                # Upload to MinIO
-                s3_url = storage.upload_file(file_obj, s3_key, content_type)
+                # Create the upload instance (this generates s3_key)
+                photo_upload = serializer.save()
+                
+                # Upload to MinIO using the generated s3_key
+                s3_url = storage.upload_file(file_obj, photo_upload.s3_key, content_type)
                 
                 # Update the instance with the S3 URL
-                validated_data['s3_url'] = s3_url
-                photo_upload = serializer.save()
+                photo_upload.s3_url = s3_url
+                photo_upload.save()
                 
                 logger.info(f"Successfully uploaded photo {photo_upload.id} for job {photo_upload.job.id}")
                 
@@ -179,18 +181,20 @@ def signature_upload_view(request):
             # Get the validated data
             validated_data = serializer.validated_data
             file_obj = validated_data['file']
-            s3_key = validated_data['s3_key']
             
             # Signatures should always be PNG
             content_type = 'image/png'
             
             try:
-                # Upload to MinIO
-                s3_url = storage.upload_file(file_obj, s3_key, content_type)
+                # Create the upload instance (this generates s3_key)
+                signature_upload = serializer.save()
+                
+                # Upload to MinIO using the generated s3_key
+                s3_url = storage.upload_file(file_obj, signature_upload.s3_key, content_type)
                 
                 # Update the instance with the S3 URL
-                validated_data['s3_url'] = s3_url
-                signature_upload = serializer.save()
+                signature_upload.s3_url = s3_url
+                signature_upload.save()
                 
                 logger.info(f"Successfully uploaded signature {signature_upload.id} for job {signature_upload.job.id}")
                 

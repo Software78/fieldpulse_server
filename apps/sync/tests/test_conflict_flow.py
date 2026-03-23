@@ -10,7 +10,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.jobs.models import Job, ChecklistSchema, ChecklistResponse
+from apps.sync.models import Job, ChecklistSchema, ChecklistResponse
 
 
 User = get_user_model()

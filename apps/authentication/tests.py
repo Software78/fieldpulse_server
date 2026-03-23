@@ -36,7 +36,6 @@ class AuthenticationTestCase(APITestCase):
         self.refresh_url = reverse('authentication:token_refresh')
         self.logout_url = reverse('authentication:logout')
         self.me_url = reverse('authentication:me')
-        self.fcm_token_url = reverse('authentication:fcm_token')
 
     def test_successful_login(self):
         """Test successful user login."""
@@ -208,76 +207,6 @@ class AuthenticationTestCase(APITestCase):
         response = self.client.get(self.me_url, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_fcm_token_update(self):
-        """Test updating FCM token."""
-        # First login to get token
-        data = {
-            'email': self.user_data['email'],
-            'password': self.user_data['password']
-        }
-        login_response = self.client.post(self.login_url, data, format='json')
-        access_token = login_response.data['access']
-        
-        # Update FCM token
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
-        fcm_data = {'fcm_token': 'new_fcm_token_12345'}
-        response = self.client.patch(self.fcm_token_url, fcm_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['message'], 'FCM token updated successfully.')
-        self.assertEqual(response.data['fcm_token'], 'new_fcm_token_12345')
-        
-        # Verify token was updated in database
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.fcm_token, 'new_fcm_token_12345')
-
-    def test_fcm_token_clear(self):
-        """Test clearing FCM token."""
-        # First login to get token
-        data = {
-            'email': self.user_data['email'],
-            'password': self.user_data['password']
-        }
-        login_response = self.client.post(self.login_url, data, format='json')
-        access_token = login_response.data['access']
-        
-        # Clear FCM token
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
-        fcm_data = {'fcm_token': ''}
-        response = self.client.patch(self.fcm_token_url, fcm_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['fcm_token'], '')
-        
-        # Verify token was cleared in database
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.fcm_token, '')
-
-    def test_fcm_token_unauthorized(self):
-        """Test updating FCM token without authentication."""
-        fcm_data = {'fcm_token': 'new_fcm_token_12345'}
-        response = self.client.patch(self.fcm_token_url, fcm_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_fcm_token_invalid_token(self):
-        """Test updating FCM token with invalid token."""
-        # First login to get token
-        data = {
-            'email': self.user_data['email'],
-            'password': self.user_data['password']
-        }
-        login_response = self.client.post(self.login_url, data, format='json')
-        access_token = login_response.data['access']
-        
-        # Try to update with invalid token (too long)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
-        fcm_data = {'fcm_token': 'x' * 256}  # 256 characters, exceeds max_length 255
-        response = self.client.patch(self.fcm_token_url, fcm_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['error'], 'validation_error')
 
 
 class UserModelTest(TestCase):

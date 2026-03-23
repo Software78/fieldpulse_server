@@ -66,16 +66,3 @@ class TokenResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
     refresh = serializers.CharField()
     user = UserSerializer()
-
-
-class FCMTokenSerializer(serializers.Serializer):
-    """
-    Serializer for updating FCM token.
-    """
-    fcm_token = serializers.CharField(max_length=255, required=False, allow_blank=True)
-
-    def validate_fcm_token(self, value):
-        """Validate FCM token format if provided."""
-        if value and len(value) > 255:
-            raise serializers.ValidationError("FCM token is too long.")
-        return value

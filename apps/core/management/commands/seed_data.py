@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from faker import Faker
 
-from apps.jobs.models import Job, ChecklistSchema, ChecklistResponse
+from apps.sync.models import Job, ChecklistSchema, ChecklistResponse
 
 User = get_user_model()
 fake = Faker('en_US')

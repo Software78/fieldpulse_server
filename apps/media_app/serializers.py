@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from rest_framework import serializers
 from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
-from apps.jobs.models import Job
+from apps.sync.models import Job
 from .models import PhotoUpload, SignatureUpload
 
 

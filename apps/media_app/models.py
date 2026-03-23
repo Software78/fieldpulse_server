@@ -5,7 +5,7 @@ import uuid
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
-from apps.jobs.models import Job
+from apps.sync.models import Job
 
 
 class PhotoUpload(models.Model):

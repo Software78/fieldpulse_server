@@ -9,8 +9,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
-from apps.users.models import User
-from apps.jobs.models import Job
+from apps.authentication.models import User
+from apps.sync.models import Job
 
 
 class MediaUploadTests(TestCase):

@@ -30,11 +30,9 @@ INSTALLED_APPS = [
     'django_ratelimit',
     'corsheaders',
     'drf_spectacular',
-    'django_celery_beat',
     
     # Local apps
     'apps.authentication',
-    'apps.jobs',
     'apps.media_app',
     'apps.sync',
     'apps.core',
@@ -199,15 +197,6 @@ LOGGING = {
     },
 }
 
-# Celery Configuration
-CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/1')
-CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://localhost:6379/1')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Spectacular/OpenAPI Settings
 SPECTACULAR_SETTINGS = {

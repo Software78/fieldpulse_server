@@ -16,7 +16,6 @@ from .serializers import (
     LoginSerializer,
     TokenResponseSerializer,
     UserSerializer,
-    FCMTokenSerializer
 )
 from .models import User
 
@@ -133,47 +132,3 @@ class MeView(APIView):
         """
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class FCMTokenView(APIView):
-    """
-    Update FCM token for push notifications.
-    PATCH /api/auth/fcm-token/
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    @extend_schema(
-        request=FCMTokenSerializer,
-        responses={200: {
-            'type': 'object',
-            'properties': {
-                'message': {'type': 'string'}
-            }
-        }},
-        summary="Register FCM token",
-        description="Register Firebase Cloud Messaging token for push notifications"
-    )
-    def patch(self, request):
-        """
-        Update user's FCM token.
-        """
-        serializer = FCMTokenSerializer(data=request.data, partial=True)
-        
-        if not serializer.is_valid():
-            return error_response(
-                error_code='validation_error',
-                message='Invalid FCM token.',
-                details=serializer.errors,
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        fcm_token = serializer.validated_data.get('fcm_token')
-        
-        # Update user's FCM token
-        request.user.fcm_token = fcm_token
-        request.user.save(update_fields=['fcm_token'])
-        
-        return Response({
-            'message': 'FCM token updated successfully.',
-            'fcm_token': fcm_token
-        }, status=status.HTTP_200_OK)
