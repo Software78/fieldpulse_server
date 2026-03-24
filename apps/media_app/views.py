@@ -69,7 +69,7 @@ def photo_upload_view(request):
     Returns:
     {
         "id": "uuid",
-        "url": "https://minio-endpoint/bucket/photos/job_id/field_id/uuid.jpg"
+        "url": "/api/media/photos/{uuid}/"
     }
     """
     try:
@@ -101,7 +101,7 @@ def photo_upload_view(request):
                 
                 return Response({
                     'id': str(photo_upload.id),
-                    'url': s3_url
+                    'url': f'/api/media/photos/{photo_upload.id}/'
                 }, status=status.HTTP_201_CREATED)
                 
             except (ClientError, NoCredentialsError) as e:
@@ -170,7 +170,7 @@ def signature_upload_view(request):
     Returns:
     {
         "id": "uuid",
-        "url": "https://minio-endpoint/bucket/signatures/job_id/field_id/uuid.png"
+        "url": "/api/media/signatures/{uuid}/"
     }
     """
     try:
@@ -202,7 +202,7 @@ def signature_upload_view(request):
                 
                 return Response({
                     'id': str(signature_upload.id),
-                    'url': s3_url
+                    'url': f'/api/media/signatures/{signature_upload.id}/'
                 }, status=status.HTTP_201_CREATED)
                 
             except (ClientError, NoCredentialsError) as e:

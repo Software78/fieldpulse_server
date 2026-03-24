@@ -109,7 +109,9 @@ class MediaUploadTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('id', response.data)
         self.assertIn('url', response.data)
-        self.assertEqual(response.data['url'], mock_url)
+        # The API now returns the proxy endpoint URL
+        expected_url = f'/api/media/photos/{response.data["id"]}/'
+        self.assertEqual(response.data['url'], expected_url)
         
         # Verify upload was called with correct parameters
         mock_upload.assert_called_once()
@@ -237,7 +239,9 @@ class MediaUploadTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('id', response.data)
         self.assertIn('url', response.data)
-        self.assertEqual(response.data['url'], mock_url)
+        # The API now returns the proxy endpoint URL
+        expected_url = f'/api/media/signatures/{response.data["id"]}/'
+        self.assertEqual(response.data['url'], expected_url)
         
         # Verify upload was called with correct parameters
         mock_upload.assert_called_once()
