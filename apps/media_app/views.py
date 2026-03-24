@@ -8,12 +8,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.exceptions import ValidationError
+from django.http import HttpResponse, Http404
 from botocore.exceptions import ClientError, NoCredentialsError
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 
 from .storage import storage
 from .serializers import PhotoUploadSerializer, SignatureUploadSerializer
+from .models import PhotoUpload, SignatureUpload
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +222,111 @@ def signature_upload_view(request):
         
     except Exception as e:
         logger.error(f"Unexpected error in signature_upload_view: {e}")
+        return Response(
+            {'error': 'An unexpected error occurred.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@extend_schema(
+    summary="Get photo by ID",
+    description="Serve a photo file through Django proxy",
+    responses={200: {'type': 'string', 'format': 'binary'}}
+)
+def photo_proxy_view(request, photo_id):
+    """
+    Proxy endpoint to serve photos through Django instead of direct MinIO URLs.
+    
+    GET /api/media/photos/{photo_id}/
+    
+    Returns the photo file as binary data with proper content type.
+    """
+    try:
+        photo = PhotoUpload.objects.get(id=photo_id)
+        
+        # Check if user has access to this photo (belongs to their job or is admin)
+        if not (request.user.is_staff or photo.job.technician == request.user):
+            return Response(
+                {'error': 'Permission denied.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get file from MinIO
+        file_obj = storage.get_file(photo.s3_key)
+        
+        # Determine content type
+        content_type = 'image/jpeg'  # Default
+        if photo.s3_key.lower().endswith('.png'):
+            content_type = 'image/png'
+        elif photo.s3_key.lower().endswith('.jpg') or photo.s3_key.lower().endswith('.jpeg'):
+            content_type = 'image/jpeg'
+        
+        # Return file as response
+        response = HttpResponse(file_obj, content_type=content_type)
+        response['Cache-Control'] = 'public, max-age=86400'  # Cache for 1 day
+        return response
+        
+    except PhotoUpload.DoesNotExist:
+        raise Http404("Photo not found")
+    except (ClientError, NoCredentialsError) as e:
+        logger.error(f"Failed to retrieve photo {photo_id} from MinIO: {e}")
+        return Response(
+            {'error': 'Failed to retrieve file.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in photo_proxy_view: {e}")
+        return Response(
+            {'error': 'An unexpected error occurred.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@extend_schema(
+    summary="Get signature by ID",
+    description="Serve a signature file through Django proxy",
+    responses={200: {'type': 'string', 'format': 'binary'}}
+)
+def signature_proxy_view(request, signature_id):
+    """
+    Proxy endpoint to serve signatures through Django instead of direct MinIO URLs.
+    
+    GET /api/media/signatures/{signature_id}/
+    
+    Returns the signature file as binary data with proper content type.
+    """
+    try:
+        signature = SignatureUpload.objects.get(id=signature_id)
+        
+        # Check if user has access to this signature (belongs to their job or is admin)
+        if not (request.user.is_staff or signature.job.technician == request.user):
+            return Response(
+                {'error': 'Permission denied.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get file from MinIO
+        file_obj = storage.get_file(signature.s3_key)
+        
+        # Return file as response
+        response = HttpResponse(file_obj, content_type='image/png')
+        response['Cache-Control'] = 'public, max-age=86400'  # Cache for 1 day
+        return response
+        
+    except SignatureUpload.DoesNotExist:
+        raise Http404("Signature not found")
+    except (ClientError, NoCredentialsError) as e:
+        logger.error(f"Failed to retrieve signature {signature_id} from MinIO: {e}")
+        return Response(
+            {'error': 'Failed to retrieve file.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in signature_proxy_view: {e}")
         return Response(
             {'error': 'An unexpected error occurred.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

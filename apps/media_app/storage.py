@@ -145,6 +145,33 @@ class MinIOStorage:
                 return False
             logger.error(f"Error checking if file exists {key}: {e}")
             return False
+    
+    def get_file(self, key: str):
+        """
+        Retrieve a file from MinIO.
+        
+        Args:
+            key: S3 key (path) of the file to retrieve
+            
+        Returns:
+            File-like object containing the file data
+            
+        Raises:
+            ClientError: If file retrieval fails
+            NoCredentialsError: If credentials are missing
+        """
+        try:
+            response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+            return response['Body']
+        except ClientError as e:
+            logger.error(f"Failed to retrieve file {key}: {e}")
+            raise
+        except NoCredentialsError as e:
+            logger.error(f"Missing AWS credentials: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error retrieving file {key}: {e}")
+            raise
 
 
 # Global storage instance
