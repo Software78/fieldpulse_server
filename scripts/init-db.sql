@@ -12,6 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 -- This section creates realistic test data for development
 
 -- Clear existing seed data (only our test data)
+-- Delete in proper order to respect foreign key constraints
 DELETE FROM sync_checklistresponse WHERE job_id IN (
     SELECT id FROM sync_job WHERE technician_id IN (
         SELECT id FROM auth_users WHERE email IN (
@@ -20,6 +21,20 @@ DELETE FROM sync_checklistresponse WHERE job_id IN (
     )
 );
 DELETE FROM sync_checklistschema WHERE job_id IN (
+    SELECT id FROM sync_job WHERE technician_id IN (
+        SELECT id FROM auth_users WHERE email IN (
+            'tech1@fieldpulse.com', 'tech2@fieldpulse.com', 'tech3@fieldpulse.com'
+        )
+    )
+);
+DELETE FROM media_app_photoupload WHERE job_id IN (
+    SELECT id FROM sync_job WHERE technician_id IN (
+        SELECT id FROM auth_users WHERE email IN (
+            'tech1@fieldpulse.com', 'tech2@fieldpulse.com', 'tech3@fieldpulse.com'
+        )
+    )
+);
+DELETE FROM media_app_signatureupload WHERE job_id IN (
     SELECT id FROM sync_job WHERE technician_id IN (
         SELECT id FROM auth_users WHERE email IN (
             'tech1@fieldpulse.com', 'tech2@fieldpulse.com', 'tech3@fieldpulse.com'
@@ -39,10 +54,12 @@ DELETE FROM auth_users WHERE email IN (
 INSERT INTO auth_users (username, email, first_name, last_name, password, is_staff, is_active, is_superuser, date_joined, phone, updated_at) VALUES
 ('tech1@fieldpulse.com', 'tech1@fieldpulse.com', 'Alex', 'Torres', 'pbkdf2_sha256$720000$W2gLAYHa5AsLbuA9JEHkp2$14qhYa8wccmxD7THYKJ3PQgaLEC1GWqF8hrIlPXf+Pw=', false, true, false, NOW() - INTERVAL '30 days', '', NOW()),
 ('tech2@fieldpulse.com', 'tech2@fieldpulse.com', 'Jordan', 'Lee', 'pbkdf2_sha256$720000$W2gLAYHa5AsLbuA9JEHkp2$14qhYa8wccmxD7THYKJ3PQgaLEC1GWqF8hrIlPXf+Pw=', false, true, false, NOW() - INTERVAL '30 days', '', NOW()),
-('tech3@fieldpulse.com', 'tech3@fieldpulse.com', 'Sam', 'Patel', 'pbkdf2_sha256$720000$W2gLAYHa5AsLbuA9JEHkp2$14qhYa8wccmxD7THYKJ3PQgaLEC1GWqF8hrIlPXf+Pw=', false, true, false, NOW() - INTERVAL '30 days', '', NOW());
+('tech3@fieldpulse.com', 'tech3@fieldpulse.com', 'Sam', 'Patel', 'pbkdf2_sha256$720000$W2gLAYHa5AsLbuA9JEHkp2$14qhYa8wccmxD7THYKJ3PQgaLEC1GWqF8hrIlPXf+Pw=', false, true, false, NOW() - INTERVAL '30 days', '', NOW())
+ON CONFLICT (username) DO NOTHING;
 
--- Create 120 jobs with realistic field service data
--- Using SQL functions to generate randomized data similar to the Python script
+-- Create 90 jobs with realistic field service data (10 per category per user)
+-- Categories: HVAC, Plumbing, Electrical, Appliance, Air Conditioning, Water Heater, 
+-- Electrical Panel, Gas Line, Commercial Refrigeration, Home Security
 
 -- Create a function to generate random US phone numbers
 CREATE OR REPLACE FUNCTION generate_us_phone() RETURNS TEXT AS $$
@@ -103,7 +120,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create all 120 jobs using a single INSERT with generated data
+-- Create all 90 jobs using a single INSERT with generated data (10 per category per user)
 INSERT INTO sync_job (id, technician_id, customer_name, customer_phone, address, latitude, longitude, job_description, notes, scheduled_start, scheduled_end, status, created_at, server_updated_at)
 SELECT 
     uuid_generate_v4(),
@@ -113,7 +130,7 @@ SELECT
     address,
     generate_lat(SPLIT_PART(address, ', ', 2)) as latitude,
     generate_lng(SPLIT_PART(address, ', ', 2)) as longitude,
-    job_descriptions[floor(random() * array_length(job_descriptions, 1) + 1)] as job_description,
+    job_descriptions[category_index + 1] as job_description,
     CASE WHEN random() < 0.7 THEN 'Customer contacted and confirmed appointment' ELSE '' END as notes,
     scheduled_start,
     scheduled_start + (floor(random() * 7 + 2) || ' hours')::interval as scheduled_end,
@@ -121,27 +138,27 @@ SELECT
     NOW() - (random() * 30 || ' days')::interval as created_at,
     NOW() as server_updated_at
 FROM (
-    -- Generate 120 rows with proper distribution
+    -- Generate 90 rows: 3 technicians × 10 categories × 3 jobs per category
     SELECT 
         CASE technician_index 
             WHEN 0 THEN (SELECT id FROM auth_users WHERE email = 'tech1@fieldpulse.com')
             WHEN 1 THEN (SELECT id FROM auth_users WHERE email = 'tech2@fieldpulse.com')
             WHEN 2 THEN (SELECT id FROM auth_users WHERE email = 'tech3@fieldpulse.com')
         END as technician_id,
+        category_index,
         CASE 
-            WHEN job_index < 40 THEN 'pending'
-            WHEN job_index < 80 THEN 'in_progress'
+            WHEN (technician_index * 10 + category_index) < 30 THEN 'pending'
+            WHEN (technician_index * 10 + category_index) < 60 THEN 'in_progress'
             ELSE 'completed'
         END as job_status,
         CASE 
-            WHEN job_index < 40 THEN NOW() + (random() * 14 || ' days')::interval
-            WHEN job_index < 80 THEN NOW() - (random() * 1 || ' days')::interval
+            WHEN (technician_index * 10 + category_index) < 30 THEN NOW() + (random() * 14 || ' days')::interval
+            WHEN (technician_index * 10 + category_index) < 60 THEN NOW() - (random() * 1 || ' days')::interval
             ELSE NOW() - (random() * 30 || ' days')::interval
         END as scheduled_start,
         generate_address() as address
-    FROM generate_series(0, 119) job_index,
-         generate_series(0, 2) technician_index
-    WHERE job_index % 3 = technician_index
+    FROM generate_series(0, 2) technician_index,
+         generate_series(0, 9) category_index
 ) job_data,
 LATERAL (
     SELECT ARRAY[
@@ -166,7 +183,7 @@ DROP FUNCTION IF EXISTS generate_lat(TEXT);
 DROP FUNCTION IF EXISTS generate_lng(TEXT);
 
 -- Create checklist schemas for all jobs
--- Generate schemas for all 120 jobs
+-- Generate schemas for all 90 jobs
 INSERT INTO sync_checklistschema (job_id, fields, version)
 SELECT id, '{
     "fields": [
@@ -183,7 +200,7 @@ SELECT id, '{
 }', 1 FROM sync_job;
 
 -- Create checklist responses for all completed jobs
--- Generate responses for all 40 completed jobs
+-- Generate responses for all 30 completed jobs
 INSERT INTO sync_checklistresponse (job_id, data, is_complete, last_modified_at, client_modified_at, completed_at)
 SELECT 
     id,
@@ -206,5 +223,6 @@ FROM sync_job
 WHERE status = 'completed';
 
 -- Full seed data creation complete
--- Total: 3 users, 120 jobs (40 pending, 40 in_progress, 40 completed)
+-- Total: 3 users, 90 jobs (30 pending, 30 in_progress, 30 completed)
+-- Each user has 10 jobs per category (10 categories total)
 -- Each job has a checklist schema, completed jobs have responses
